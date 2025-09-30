@@ -12,8 +12,7 @@ class RegisterView(APIView):
         if(serializer.is_valid()):
             user=serializer.save()
             refresh = RefreshToken.for_user(user)
-
-            return Response({
+            response = Response({
                 "message": "User registered successfully!",
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
@@ -25,6 +24,40 @@ class RegisterView(APIView):
                     "created_at": user.date_joined
                 }
             }, status=status.HTTP_201_CREATED)
+
+            response.set_cookie(
+            key="access",
+            value=str(refresh.access_token),
+            httponly=True,
+            secure=True,       # production me https ke liye
+            samesite="Lax",
+            max_age=300        # 5 minutes
+)
+            
+            response.set_cookie(
+            key="refresh",
+            value=str(refresh),
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=864000     # 10 days
+        )
+            response.set_cookie(
+            key="user",
+            value={"user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "fullname":user.first_name+" "+user.last_name,
+                    "created_at": user.date_joined
+                }},
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=864000     # 10 days
+        )
+            
+            return response
     
         return Response(serializer.errors)
     
@@ -41,8 +74,8 @@ class LoginView(APIView):
         if user is not None:
             # create JWT tokens for the user
             refresh = RefreshToken.for_user(user)
-            return Response({
-                "message": "User registered successfully!",
+            response = Response({
+                "message": "User LoggedIn successfully!",
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
                 "user": {
@@ -53,6 +86,41 @@ class LoginView(APIView):
                     "created_at": user.date_joined
                 }
             }, status=status.HTTP_201_CREATED)
+
+            response.set_cookie(
+            key="access",
+            value=str(refresh.access_token),
+            httponly=True,
+            secure=True,       # production me https ke liye
+            samesite="Lax",
+            max_age=300        # 5 minutes
+)
+            
+            response.set_cookie(
+            key="refresh",
+            value=str(refresh),
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=864000     # 10 days
+        )
+            response.set_cookie(
+            key="user",
+            value={"user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "fullname":user.first_name+" "+user.last_name,
+                    "created_at": user.date_joined
+                }},
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=864000     # 10 days
+        )
+            
+            return response
+    
         else:
             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 

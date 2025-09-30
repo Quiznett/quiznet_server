@@ -1,16 +1,18 @@
-"""
-ASGI config for quiznet project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
-"""
-
 import os
-
 from django.core.asgi import get_asgi_application
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+import quiz.routing
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "quiznet.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "project_name.settings")
 
-application = get_asgi_application()
+django_asgi_app = get_asgi_application()
+
+application = ProtocolTypeRouter({
+    "http": django_asgi_app,
+    "websocket": AuthMiddlewareStack(  # you can replace with custom middleware for JWT
+        URLRouter(
+            quiz.routing.websocket_urlpatterns
+        )
+    ),
+})
