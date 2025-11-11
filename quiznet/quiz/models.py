@@ -16,6 +16,8 @@ class Quiz(models.Model):
     is_active = models.BooleanField(default=True)
     issued_date = models.DateTimeField(auto_now_add=True)
     initiates_on = models.DateTimeField()
+    ends_on = models.DateTimeField()
+    time_limit_minutes = models.PositiveBigIntegerField()
     questions_id = models.JSONField(default=list)
 
     def __str__(self):
@@ -37,4 +39,4 @@ class Question(models.Model):
     answer = models.PositiveSmallIntegerField(choices=[(1, "Option 1"), (2, "Option 2"), (3, "Option 3"), (4, "Option 4")])
 
     def __str__(self):
-        return f"Q: {self.question[:50]}..."
+        return f"Q: {self.question_title[:50]}..."

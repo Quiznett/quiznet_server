@@ -18,7 +18,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path,include
 from account import urls as account_urls
+from quiz import urls as quiz_urls
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/v1/auth/",include(account_urls))
+    path("api/v1/auth/",include(account_urls)),
+    path("api/v1/quiz/",include(quiz_urls))
 ]
