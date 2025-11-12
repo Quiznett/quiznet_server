@@ -135,7 +135,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOWED_ORIGINS =[
     "http://localhost:5173",
 ] 
-
+CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
 CORS_ALLOW_CREDENTIALS = True
 
 CHANNEL_LAYERS = {
@@ -145,4 +145,17 @@ CHANNEL_LAYERS = {
             "hosts": [("redis", 6379)],  # or ("127.0.0.1",6379)
         },
     },
+}
+REST_FRAMEWORK = {
+  'DEFAULT_AUTHENTICATION_CLASSES': (
+    'rest_framework_simplejwt.authentication.JWTAuthentication',
+  ),
+}
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False, # set True if you implement rotation logic
+    'BLACKLIST_AFTER_ROTATION': True,
 }
