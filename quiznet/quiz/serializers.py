@@ -41,6 +41,8 @@ class QuizCreateSerializer(serializers.ModelSerializer):
 
 
 class QuizListSerializer(serializers.ModelSerializer):
+    question_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = Quiz
         fields = [
@@ -50,7 +52,11 @@ class QuizListSerializer(serializers.ModelSerializer):
             'ends_on',
             'time_limit_minutes',
             'is_active',
+            'question_count',
         ]
+
+    def get_question_count(self, obj):
+        return obj.questions.count()
 
 
 class UserScoreSerializer(serializers.Serializer):
