@@ -20,7 +20,7 @@ class QuizCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def get(self,request):
-        quizzes = Quiz.objects.all().order_by('initiates_on')
+        quizzes = Quiz.objects.filter(creator=request.user).order_by('initiates_on')
         serializer = QuizListSerializer(quizzes, many=True)
         return Response(serializer.data)
     
