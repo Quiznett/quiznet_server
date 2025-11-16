@@ -41,3 +41,47 @@ class Question(models.Model):
 
     def __str__(self):
         return f"Q: {self.question_title[:50]}..."
+    
+class Attempt(models.Model):
+    attempt_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_attempts")
+    quiz = models.ForeignKey("Quiz", on_delete=models.CASCADE, related_name="attempts")
+
+    responses = models.JSONField(default=dict)
+
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null = True, blank = True)
+    score = models.IntegerField(null = True, blank = True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user","quiz"]),
+        ]
+
+    def is_submitted(self):
+        return self.submitted_at is not None
+    
+    def mark_submitted(self, when=None):
+        self.submitted_at = when or timezone.now()
+        self.save(update_fields=["submitted_at"])
+
+    def grade(self):
+        from .models import Question
+
+        correct = 0
+
+        for qid_str, selected in (self.responses or {}).items():
+            try:
+                q = Question.objects.get(question_id = qid_str, quiz = self.quiz)
+            except Question.DoesNotExist:
+                continue
+
+            if q.answer == int(selected):
+                correct += 1
+
+        self.score = correct
+        self.save(update_fields=["score"])
+        return self.score
+    
+    def __str__(self):
+        return f"Attempt {self.attempt_id} by {self.user} on {self.quiz}"

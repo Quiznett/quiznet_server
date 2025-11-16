@@ -1,11 +1,16 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Quiz, Question
+from .models import Quiz, Question, Attempt 
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         exclude = ['quiz']
+
+class AttemptQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        exclude = ['quiz', 'answer']
 
 class QuizCreateSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, write_only=True)
@@ -84,3 +89,41 @@ class QuizSerializer(serializers.ModelSerializer):
                   "ends_on",
                   "time_limit_minutes"
                  ]
+
+
+class AttemptStartSerializer(serializers.ModelSerializer):
+    quiz_id = serializers.UUIDField(source="quiz.quiz_id", read_only=True)
+    quiz_title = serializers.CharField(source="quiz.quiz_title", read_only=True)
+    time_limit_minutes = serializers.IntegerField(source="quiz.time_limit_minutes", read_only=True)
+    initiates_on = serializers.DateTimeField(source="quiz.initiates_on", read_only = True)
+    ends_on = serializers.DateTimeField(source="quiz.ends_on", read_only=True)
+
+    questions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attempt
+        fields = [
+            "attempt_id",
+            "quiz_id",
+            "quiz_title",
+            "started_at",
+            "responses",
+            "time_limit_minutes",
+            "initiates_on",
+            "ends_on",
+            "questions"
+        ]
+    
+    def get_questions(self, obj):
+        qs = Question.objects.filter(quiz=obj.quiz)
+        return AttemptQuestionSerializer(qs, many=True).data
+    
+
+class AttemptSaveSerializer(serializers.Serializer):
+    question_id = serializers.UUIDField()
+    selected_option = serializers.IntegerField(min_value = 1, max_value = 4)
+
+class AttemptSubmitSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Attempt
+        fields = ["attempt_id", "score", "submitted_at", "responses"]
