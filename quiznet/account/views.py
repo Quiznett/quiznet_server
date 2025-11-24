@@ -36,6 +36,17 @@ def _user_cookie_kwargs(max_age_seconds=864000):
         "path": "/",
     }
 
+# Helper to build cookie kwargs for access token (HttpOnly, short-lived)
+def _access_cookie_kwargs(max_age_seconds=300):
+    return {
+        "httponly": True,
+        "secure": not settings.DEBUG,
+        "samesite": "Lax",
+        "max_age": max_age_seconds,  # typically short-lived, e.g. 5 minutes
+        "path": "/",
+    }
+
+
 # Helper to produce a safe JSON string for cookie value (URL-encoded)
 def _encode_user_cookie(user_obj):
     """
@@ -79,6 +90,12 @@ class RegisterView(APIView):
             key="refresh_token",
             value=refresh_token,
             **_refresh_cookie_kwargs(max_age_seconds=864000)  # 10 days
+        )
+        
+        resp.set_cookie(
+            key="access_token",
+            value=access_token,
+            **_access_cookie_kwargs(max_age_seconds=300)  # ~5 minutes
         )
 
         # set readable user cookie (URL-encoded JSON)
@@ -128,6 +145,12 @@ class LoginView(APIView):
             value=_encode_user_cookie(_user_info(user)),
             **_user_cookie_kwargs(max_age_seconds=864000)
         )
+        
+        resp.set_cookie(
+            key="access_token",
+            value=access_token,
+            **_access_cookie_kwargs(max_age_seconds=300)
+        )
 
         return resp
 
@@ -167,6 +190,12 @@ class TokenRefreshView(APIView):
                     user_obj = None
 
             resp = Response({"access": new_access}, status=status.HTTP_200_OK)
+            
+            resp.set_cookie(
+                key="access_token",
+                value=new_access,
+                **_access_cookie_kwargs(max_age_seconds=300)
+            )
 
             # Optionally: rotate refresh token here and set new cookie (left out for simplicity).
             # Keep refresh cookie unchanged unless you implement rotation.
@@ -207,7 +236,9 @@ class LogoutView(APIView):
                 pass
 
         # Delete cookies (path should match set_cookie path)
+                # Delete cookies (path should match set_cookie path)
         resp.delete_cookie("refresh_token", path='/')
+        resp.delete_cookie("access_token", path='/')
         resp.delete_cookie("user", path='/')
 
         return resp

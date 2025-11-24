@@ -5,7 +5,8 @@ from .serializers import (
     AttemptQuestionSerializer, 
     QuestionSerializer, 
     AttemptSaveSerializer, 
-    AttemptSubmitSerializer
+    AttemptSubmitSerializer,
+    AttemptResponseSerializer
 )
 from .models import Quiz, Attempt
 from django.utils import timezone
@@ -20,6 +21,10 @@ from rest_framework import status
 from django.shortcuts import render
 from rest_framework_simplejwt.tokens import RefreshToken,TokenError
 from rest_framework.authentication import authenticate
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 # Create your views here.
 
 class QuizCreateView(APIView):
@@ -196,7 +201,62 @@ class AttemptSubmitView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# class QuestionCreateView(APIView):
-#     def post(self,request):
-#         pass
+class AttemptUserResponseView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, quiz_id, user_id=None):
+        """
+        - If user_id is None:
+            * If request.user is quiz creator → return ALL users' submitted attempts for this quiz.
+            * Else → return current user's submitted attempt.
+        - If user_id is provided:
+            * Only quiz creator can view that specific user's attempt.
+        """
+        # 1) Find quiz
+        try:
+            quiz = Quiz.objects.get(quiz_id=quiz_id)
+        except Quiz.DoesNotExist:
+            return Response({"detail": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2) If no user_id in URL
+        if user_id is None:
+            # If the current user is the creator → return ALL users' responses
+            if quiz.creator == request.user:
+                # Adjust this filter according to your Attempt model (e.g. submitted_at__isnull=False or status='submitted')
+                attempts = Attempt.objects.filter(quiz=quiz)
+
+                # If you only want submitted attempts:
+                # attempts = Attempt.objects.filter(quiz=quiz, submitted=True)  # example
+
+                if not attempts.exists():
+                    return Response({"detail": "No attempts found for this quiz"}, status=status.HTTP_404_NOT_FOUND)
+
+                serializer = AttemptResponseSerializer(attempts, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+
+            # Not creator → only return this user's own attempt
+            target_user = request.user
+
+        else:
+            # 3) user_id is provided → only quiz creator can inspect another user
+            if quiz.creator != request.user:
+                return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
+            try:
+                target_user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 4) Fetch single attempt for target_user
+        attempt = Attempt.objects.filter(user=target_user, quiz=quiz).first()
+
+        if not attempt:
+            return Response({"detail": "Attempt not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # If you have an is_submitted() method, keep this
+        if hasattr(attempt, "is_submitted") and callable(attempt.is_submitted):
+            if not attempt.is_submitted():
+                return Response({"detail": "Attempt not submitted yet"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = AttemptResponseSerializer(attempt)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

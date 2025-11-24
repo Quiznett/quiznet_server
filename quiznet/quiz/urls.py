@@ -6,6 +6,7 @@ from .views import (
     AttemptSaveView,
     AttemptStatusView,
     AttemptSubmitView,
+    AttemptUserResponseView
 )
 
 urlpatterns = [
@@ -17,4 +18,6 @@ urlpatterns = [
     path('attempt/<uuid:quiz_id>/save/', AttemptSaveView.as_view(), name='attempt-save'),
     path('attempt/<uuid:quiz_id>/status/', AttemptStatusView.as_view(), name='attempt-status'),
     path('attempt/<uuid:quiz_id>/submit/', AttemptSubmitView.as_view(), name='attempt-submit'),
+    path("quizzes/<uuid:quiz_id>/responses/", AttemptUserResponseView.as_view()),
+    path("quizzes/<uuid:quiz_id>/responses/<uuid:user_id>/", AttemptUserResponseView.as_view())
 ]
