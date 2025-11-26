@@ -292,61 +292,126 @@ class AttemptSubmitView(APIView):
 
 
 class AttemptUserResponseView(APIView):
+    """
+    Handles fetching quiz attempt details for:
+    - the current user, OR
+    - any user (only if the quiz creator requests it).
+
+    This endpoint supports two modes:
+        1) /quiz/<quiz_id>/attempts/
+           - If caller is quiz creator → return ALL users' attempts.
+           - If caller is a normal user → return ONLY their own attempt.
+
+        2) /quiz/<quiz_id>/attempts/<user_id>/
+           - Only quiz creator can access another user’s attempt.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, quiz_id, user_id=None):
-        """
-        - If user_id is None:
-            * If request.user is quiz creator → return ALL users' submitted attempts for this quiz.
-            * Else → return current user's submitted attempt.
-        - If user_id is provided:
-            * Only quiz creator can view that specific user's attempt.
-        """
-        # 1) Find quiz
+
+        # ---------------------------------------------
+        # 1) Validate quiz existence
+        # ---------------------------------------------
         try:
             quiz = Quiz.objects.get(quiz_id=quiz_id)
         except Quiz.DoesNotExist:
             return Response({"detail": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2) If no user_id in URL
+        # ---------------------------------------------
+        # 2) If user_id is NOT provided
+        # ---------------------------------------------
         if user_id is None:
-            # If the current user is the creator → return ALL users' responses
+            # If the requester is the creator, return ALL attempts for this quiz
             if quiz.creator == request.user:
-                # Adjust this filter according to your Attempt model (e.g. submitted_at__isnull=False or status='submitted')
-                attempts = Attempt.objects.filter(quiz=quiz)
 
-                # If you only want submitted attempts:
-                # attempts = Attempt.objects.filter(quiz=quiz, submitted=True)  # example
+                # Retrieve every attempt for this quiz
+                # NOTE: You may want to filter only submitted attempts.
+                attempts = Attempt.objects.filter(quiz=quiz)
 
                 if not attempts.exists():
                     return Response({"detail": "No attempts found for this quiz"}, status=status.HTTP_404_NOT_FOUND)
 
+                # Serialize all attempts
                 serializer = AttemptResponseSerializer(attempts, many=True)
                 return Response(serializer.data, status=status.HTTP_200_OK)
 
-            # Not creator → only return this user's own attempt
+            # If the requester is NOT the creator, return only THEIR attempt
             target_user = request.user
 
         else:
-            # 3) user_id is provided → only quiz creator can inspect another user
+            # ---------------------------------------------
+            # 3) When a specific user_id IS provided
+            # Only quiz creator can view another user's responses
+            # ---------------------------------------------
             if quiz.creator != request.user:
                 return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
+
+            # Ensure target user exists
             try:
                 target_user = User.objects.get(id=user_id)
             except User.DoesNotExist:
                 return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 4) Fetch single attempt for target_user
+        # ---------------------------------------------
+        # 4) Fetch attempt for the target_user
+        # ---------------------------------------------
         attempt = Attempt.objects.filter(user=target_user, quiz=quiz).first()
 
         if not attempt:
             return Response({"detail": "Attempt not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # If you have an is_submitted() method, keep this
+        # Ensure the attempt is submitted (if method exists)
         if hasattr(attempt, "is_submitted") and callable(attempt.is_submitted):
             if not attempt.is_submitted():
                 return Response({"detail": "Attempt not submitted yet"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Serialize single attempt
         serializer = AttemptResponseSerializer(attempt)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+
+# -------------------------------------------------------------------
+# New API: Return ONLY the quizzes that the current user has attempted
+# -------------------------------------------------------------------
+
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAuthenticated
+
+# Using existing serializers from your project
+from .serializers import QuizListSerializer, AttemptSubmitSerializer
+
+
+class AttemptedQuizzesView(APIView):
+    """
+    Returns ALL quizzes that the current authenticated user has attempted.
+
+    - Does NOT return the user's attempt details.
+    - Only the QUIZ information is returned.
+    - Uses QuizListSerializer for clean quiz summary output.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # ----------------------------------------------------------
+        # 1) Query all Attempt records for this user
+        #    and extract DISTINCT quiz primary keys
+        # ----------------------------------------------------------
+        quiz_pks = Attempt.objects.filter(
+            user=user
+        ).values_list('quiz__pk', flat=True).distinct()
+
+        # If user has never attempted any quiz → return empty list
+        if not quiz_pks:
+            return Response([], status=status.HTTP_200_OK)
+
+        # ----------------------------------------------------------
+        # 2) Fetch those quizzes and order by initiates_on DESC
+        # ----------------------------------------------------------
+        quizzes = Quiz.objects.filter(pk__in=quiz_pks).order_by('-initiates_on')
+
+        # Serialize quiz objects only
+        serializer = QuizListSerializer(quizzes, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

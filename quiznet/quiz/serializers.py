@@ -286,3 +286,9 @@ class AttemptResponseSerializer(serializers.ModelSerializer):
             })
 
         return detailed
+    
+
+
+class QuizWithAttemptSerializer(serializers.Serializer):
+    quiz = QuizListSerializer()
+    attempt = AttemptSubmitSerializer()

@@ -16,49 +16,76 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 
-# Helper to build cookie kwargs for refresh token (HttpOnly)
+# ------------------------------
+# COOKIE HELPERS
+# ------------------------------
+
 def _refresh_cookie_kwargs(max_age_seconds=864000):
+    """
+    Returns kwargs for the REFRESH TOKEN cookie.
+    - HttpOnly so JS cannot access it
+    - Secure when DEBUG=False
+    - SameSite=Lax for safe cross-site behaviour
+    - max_age = 10 days (default)
+    """
     return {
         "httponly": True,
         "secure": not settings.DEBUG,
         "samesite": "Lax",
         "max_age": max_age_seconds,
-        "path": "/",  # you can scope to '/api/token/refresh/' if desired
+        "path": "/",
     }
 
-# Helper to build cookie kwargs for readable user cookie
+
 def _user_cookie_kwargs(max_age_seconds=864000):
+    """
+    Returns kwargs for USER cookie.
+    - Readable by JS (httponly=False)
+    - Stores user info for frontend use.
+    - Same lifetime as refresh token.
+    """
     return {
-        "httponly": False,          # allow frontend JS to read it
+        "httponly": False,
         "secure": not settings.DEBUG,
         "samesite": "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
 
-# Helper to build cookie kwargs for access token (HttpOnly, short-lived)
+
 def _access_cookie_kwargs(max_age_seconds=300):
+    """
+    Returns kwargs for ACCESS TOKEN cookie.
+    - HttpOnly so JS cannot access it
+    - Very short lifetime (default 5 minutes)
+    """
     return {
         "httponly": True,
         "secure": not settings.DEBUG,
         "samesite": "Lax",
-        "max_age": max_age_seconds,  # typically short-lived, e.g. 5 minutes
+        "max_age": max_age_seconds,
         "path": "/",
     }
 
 
-# Helper to produce a safe JSON string for cookie value (URL-encoded)
+# ------------------------------
+# JSON ENCODING HELPER
+# ------------------------------
+
 def _encode_user_cookie(user_obj):
     """
-    user_obj: dict
-    returns: URL-encoded JSON string safe for cookie value
+    Converts user info dict → JSON string → URL-encoded string.
+    This ensures cookie is safe even if it contains spaces, quotes, special chars.
     """
-    json_str = json.dumps(user_obj, separators=(",", ":"))  # compact
-    return urllib.parse.quote(json_str, safe="")  # encode so no special chars break cookie
+    json_str = json.dumps(user_obj, separators=(",", ":"))
+    return urllib.parse.quote(json_str, safe="")
 
 
-# Helper to prepare minimal user info dict
 def _user_info(user: User):
+    """
+    Returns a minimal dictionary describing the user.
+    Stored inside the readable cookie for frontend convenience.
+    """
     return {
         "id": user.id,
         "username": user.username,
@@ -67,38 +94,49 @@ def _user_info(user: User):
     }
 
 
+# ------------------------------
+# REGISTER VIEW
+# ------------------------------
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """
+        Creates a new user, returns access token in body,
+        and sets both access + refresh tokens as cookies.
+        """
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
 
+        # Successful response
         resp = Response({
             "message": "User registered successfully!",
             "access": access_token,
             "user": _user_info(user)
         }, status=status.HTTP_201_CREATED)
 
-        # set refresh token cookie (HttpOnly)
+        # Set refresh token (HttpOnly)
         resp.set_cookie(
             key="refresh_token",
             value=refresh_token,
-            **_refresh_cookie_kwargs(max_age_seconds=864000)  # 10 days
+            **_refresh_cookie_kwargs(max_age_seconds=864000)
         )
-        
+
+        # Set access token (HttpOnly)
         resp.set_cookie(
             key="access_token",
             value=access_token,
-            **_access_cookie_kwargs(max_age_seconds=300)  # ~5 minutes
+            **_access_cookie_kwargs(max_age_seconds=300)
         )
 
-        # set readable user cookie (URL-encoded JSON)
+        # Set readable user cookie
         resp.set_cookie(
             key="user",
             value=_encode_user_cookie(_user_info(user)),
@@ -108,44 +146,57 @@ class RegisterView(APIView):
         return resp
 
 
+# ------------------------------
+# LOGIN VIEW
+# ------------------------------
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """
+        Authenticates user, returns JWT tokens,
+        sets cookies same as registration.
+        """
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         username = serializer.validated_data['username']
         password = serializer.validated_data['password']
+
+        # Django auth system
         user = authenticate(username=username, password=password)
 
         if user is None:
             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
+        # Generate tokens
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
 
+        # Successful response
         resp = Response({
             "message": "User logged in successfully!",
             "access": access_token,
             "user": _user_info(user)
         }, status=status.HTTP_200_OK)
 
-        # set refresh token cookie (HttpOnly)
+        # Set refresh cookie
         resp.set_cookie(
             key="refresh_token",
             value=refresh_token,
-            **_refresh_cookie_kwargs(max_age_seconds=864000)  # 10 days
+            **_refresh_cookie_kwargs(max_age_seconds=864000)
         )
 
-        # set readable user cookie (URL-encoded JSON)
+        # Set readable user cookie
         resp.set_cookie(
             key="user",
             value=_encode_user_cookie(_user_info(user)),
             **_user_cookie_kwargs(max_age_seconds=864000)
         )
-        
+
+        # Set access token cookie
         resp.set_cookie(
             key="access_token",
             value=access_token,
@@ -155,52 +206,55 @@ class LoginView(APIView):
         return resp
 
 
+# ------------------------------
+# TOKEN REFRESH VIEW
+# ------------------------------
+
 class TokenRefreshView(APIView):
     """
-    POST -> reads refresh token from HttpOnly cookie 'refresh_token' and returns a new access token.
-    Also updates the 'user' cookie with fresh user data (useful if user details changed).
-    Frontend must call this endpoint with fetch(..., credentials: 'include')
+    Refreshes access token using refresh token stored in HttpOnly cookie.
+    Frontend must use: fetch(url, { method:"POST", credentials:"include" })
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
+        # Read refresh token from cookie
         refresh_token = request.COOKIES.get('refresh_token')
+
         if not refresh_token:
             return Response({"detail": "Refresh token not found."}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
+            # Validate & decode refresh token
             refresh = RefreshToken(refresh_token)
             new_access = str(refresh.access_token)
 
-            # Attempt to get user id from token payload and refresh user cookie
-            user_obj = None
-            user_id = None
-            # SimpleJWT uses 'user_id' claim by default
+            # Attempt to read user ID from token
             try:
-                user_id = refresh.payload.get("user_id") or refresh.get("user_id", None)
+                user_id = refresh.payload.get("user_id")
             except Exception:
-                # fallback: try direct payload access
-                user_id = refresh.payload.get("user_id") if hasattr(refresh, "payload") else None
+                user_id = None
 
-            if user_id is not None:
+            user_obj = None
+            if user_id:
+                # Update readable user cookie with fresh DB values
                 try:
                     user = User.objects.get(id=user_id)
                     user_obj = _user_info(user)
                 except User.DoesNotExist:
-                    user_obj = None
+                    pass
 
+            # Successful response
             resp = Response({"access": new_access}, status=status.HTTP_200_OK)
-            
+
+            # Update access cookie
             resp.set_cookie(
                 key="access_token",
                 value=new_access,
                 **_access_cookie_kwargs(max_age_seconds=300)
             )
 
-            # Optionally: rotate refresh token here and set new cookie (left out for simplicity).
-            # Keep refresh cookie unchanged unless you implement rotation.
-
-            # Update user cookie if we could fetch user info
+            # Optionally update user cookie
             if user_obj:
                 resp.set_cookie(
                     key="user",
@@ -214,29 +268,36 @@ class TokenRefreshView(APIView):
             return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
+# ------------------------------
+# LOGOUT VIEW
+# ------------------------------
+
 class LogoutView(APIView):
     """
-    POST -> blacklist the refresh token (if present) and delete both cookies.
-    Frontend must call with credentials: 'include'
+    Deletes refresh + access + user cookies.
+    Blacklists refresh token IF token_blacklist app is installed.
     """
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
+
         resp = Response({"message": "Logged out"}, status=status.HTTP_200_OK)
 
+        # Try blacklisting the refresh token
         if refresh_token:
             try:
                 token = RefreshToken(refresh_token)
-                # Blacklist if token_blacklist app installed
+
+                # If blacklist app is installed
                 try:
                     token.blacklist()
                 except Exception:
-                    # token_blacklist may not be installed; ignore if so
+                    # Silently ignore if blacklist is not enabled
                     pass
+
             except TokenError:
                 pass
 
-        # Delete cookies (path should match set_cookie path)
-                # Delete cookies (path should match set_cookie path)
+        # Delete all cookies
         resp.delete_cookie("refresh_token", path='/')
         resp.delete_cookie("access_token", path='/')
         resp.delete_cookie("user", path='/')
