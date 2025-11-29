@@ -78,6 +78,23 @@ class QuizCreateSerializer(serializers.ModelSerializer):
         quiz.questions_id = question_ids
         quiz.save()
         return quiz
+    
+
+    def validate(self, data):
+        initiates = data.get("initiates_on")
+        ends = data.get("ends_on")
+        time_limit = data.get("time_limit_minutes")
+
+        if initiates >= ends:
+            raise serializers.ValidationError("ends_on must be after initiates_on.")
+        
+        total_minutes = (ends-initiates).total_seconds()/60
+
+        if time_limit > total_minutes:
+            raise serializers.ValidationError("time_limit_minutes cannot be greater than the total available quiz window.")
+
+        return data
+    
 
 
 class QuizListSerializer(serializers.ModelSerializer):
@@ -238,55 +255,51 @@ class AttemptResponseSerializer(serializers.ModelSerializer):
 
     def get_responses(self, obj):
         """
-        Returns a list of detailed responses like:
-        [
-          {
-            "question_id": "...",
-            "question_title": "...",
-            "option1": "...",
-            "option2": "...",
-            "option3": "...",
-            "option4": "...",
-            "selected_option": 2,
-            "correct_option": 3,
-            "is_correct": false
-          },
-          ...
-        ]
+        Structure of each returned item:
+        {
+            "question_id": "<uuid>",
+            "question_title": "<text>",
+            "option1": "<text>",
+            "option2": "<text>",
+            "option3": "<text>",
+            "option4": "<text>",
+            "selected_option": <int or None>,
+            "correct_option": <int>,
+            "is_correct": <bool>,
+            "attempted": <bool>
+        }
         """
-        from .models import Question  # local import to avoid circular issues
+        from .models import Question
 
-        raw_responses = obj.responses or {}   # {question_id_str: selected_option}
-        # Fetch all questions for this quiz in one query
+        raw = obj.responses or {}  # {question_id_str: selected_option}
         questions = Question.objects.filter(quiz=obj.quiz)
-        question_map = {str(q.question_id): q for q in questions}
 
         detailed = []
 
-        for qid_str, selected in raw_responses.items():
-            q = question_map.get(qid_str)
-            if not q:
-                continue
+        for q in questions:
+            qid = str(q.question_id)
+            selected = raw.get(qid)   # None if unattempted
 
             try:
-                selected_int = int(selected)
+                selected_int = int(selected) if selected is not None else None
             except (TypeError, ValueError):
                 selected_int = None
 
             detailed.append({
-                "question_id": qid_str,
+                "question_id": qid,
                 "question_title": q.question_title,
                 "option1": q.option1,
                 "option2": q.option2,
                 "option3": q.option3,
                 "option4": q.option4,
-                "selected_option": selected_int,
+                "selected_option": selected_int,       # None → unattempted
                 "correct_option": q.answer,
-                "is_correct": (selected_int == q.answer) if selected_int is not None else False,
+                "is_correct": selected_int == q.answer if selected_int else False,
+                "attempted": selected is not None,     # helpful field
             })
 
         return detailed
-    
+
 
 
 class QuizWithAttemptSerializer(serializers.Serializer):
