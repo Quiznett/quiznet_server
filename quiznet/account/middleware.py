@@ -1,4 +1,4 @@
- # account/middleware.py
+# account/middleware.py
 from importlib.resources import path
 import traceback
 from django.utils.deprecation import MiddlewareMixin
@@ -9,18 +9,22 @@ from django.utils.functional import SimpleLazyObject
 
 User = get_user_model()
 
-def _refresh_cookie_kwargs(max_age_seconds=864000):
+
+def _refresh_cookie_kwargs(max_age_seconds=604800):
     return {
-        "secure": False,
-        "samesite": "None" if not settings.DEBUG else "Lax",
+
+        "samesite": "None",
+        "secure": True,
         "max_age": max_age_seconds,
         "path": "/",
     }
 
+
 def _access_cookie_kwargs(max_age_seconds=300):
     return {
-        "secure": False,
-        "samesite": "None" if not settings.DEBUG else "Lax",
+
+        "samesite": "None",
+        "secure": True,
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -32,8 +36,10 @@ class RefreshAccessMiddleware(MiddlewareMixin):
     If none is present or it is expired, it attempts to use the refresh cookie to:
       - create a new access token and inject Authorization header
       - set access_token cookie on response (HttpOnly)
-      - optionally rotate refresh token if SIMPLE_JWT.ROTATE_REFRESH_TOKENS=True
+      - NO REFRESH ROTATION
+      - NO BLACKLISTING
     """
+
     SKIP_PATHS = [
         "/api/v1/auth/login/",
         "/api/v1/auth/register/",
@@ -45,16 +51,12 @@ class RefreshAccessMiddleware(MiddlewareMixin):
     ]
 
     def _should_skip(self, path: str) -> bool:
-        
         return path in self.SKIP_PATHS
-    
-    
-    
+
     def process_request(self, request):
         # Skip certain paths
         if request.path.startswith("/api/v1/auth/"):
             return None
-
 
         # If Authorization header already present, do nothing
         if request.META.get("HTTP_AUTHORIZATION"):
@@ -64,7 +66,7 @@ class RefreshAccessMiddleware(MiddlewareMixin):
         if not refresh_token:
             return None
 
-        try:         
+        try:
             refresh = RefreshToken(refresh_token)
             new_access = str(refresh.access_token)
         except TokenError:
@@ -97,7 +99,6 @@ class RefreshAccessMiddleware(MiddlewareMixin):
 
         # Set access_token cookie (HttpOnly)
         access_val = request._refreshed_access_token
-        # determine cookie lifetime seconds safely
         try:
             access_seconds = int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
         except Exception:
@@ -110,31 +111,6 @@ class RefreshAccessMiddleware(MiddlewareMixin):
             **_access_cookie_kwargs(max_age_seconds=access_seconds)
         )
 
-        # If rotation configured, rotate refresh token
-        rotate = bool(settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", False))
-        if rotate and getattr(request, "_used_refresh_token", None):
-            old_refresh = request._used_refresh_token
-            try:
-                old_refresh.blacklist()
-            except Exception:
-                pass
-            try:
-                uid = old_refresh.payload.get("user_id")
-                if uid:
-                    new_refresh = RefreshToken.for_user(User.objects.get(id=uid))
-                    try:
-                        refresh_seconds = int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
-                    except Exception:
-                        refresh_seconds = 864000
-                    response.set_cookie(
-                        key="refresh_token",
-                        value=str(new_refresh),
-                        httponly=True,
-                        **_refresh_cookie_kwargs(max_age_seconds=refresh_seconds)
-                    )
-            except Exception:
-                response.delete_cookie("refresh_token", path="/")
-            
-            
+        pass
 
         return response

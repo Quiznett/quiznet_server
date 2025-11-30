@@ -59,7 +59,6 @@ class SendOTPView(APIView):
         return Response({"message": "OTP sent successfully"})
 
 
-
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
 
@@ -92,26 +91,26 @@ class VerifyOTPView(APIView):
 # COOKIE HELPERS
 # ------------------------------
 
-def _refresh_cookie_kwargs(max_age_seconds=864000):
+def _refresh_cookie_kwargs(max_age_seconds=604800):
     return {
-        "secure": False ,
-        "samesite": "None" if not settings.DEBUG else "Lax",
+        "samesite": "None",
+        "secure": True,
         "max_age": max_age_seconds,
         "path": "/",
     }
 
 def _access_cookie_kwargs(max_age_seconds=300):
     return {
-        "secure": False ,
-        "samesite": "None" if not settings.DEBUG else "Lax",
+        "samesite": "None",
+        "secure": True,
         "max_age": max_age_seconds,
         "path": "/",
     }
 
-def _user_cookie_kwargs(max_age_seconds=864000):
+def _user_cookie_kwargs(max_age_seconds=604800):
     return {
-        "secure": False ,
-        "samesite": "None" if not settings.DEBUG else "Lax",
+        "samesite": "None",
+        "secure": True,
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -126,7 +125,6 @@ def _encode_user_cookie(user_obj):
     """
     json_str = json.dumps(user_obj, separators=(",", ":"))
     return urllib.parse.quote(json_str, safe="")
-
 
 def _user_info(user: User):
     """
@@ -174,7 +172,7 @@ class RegisterView(APIView):
             key="refresh_token",
             value=refresh_token,
             httponly=True,                       # ensure HttpOnly
-            **_refresh_cookie_kwargs(max_age_seconds=864000)
+            **_refresh_cookie_kwargs(max_age_seconds=604800)
         )
 
         # Set access token (HttpOnly)
@@ -189,7 +187,7 @@ class RegisterView(APIView):
         resp.set_cookie(
             key="user",
             value=_encode_user_cookie(_user_info(user)),
-            **_user_cookie_kwargs(max_age_seconds=864000)
+            **_user_cookie_kwargs(max_age_seconds=604800)
         )
 
         return resp
@@ -233,14 +231,14 @@ class LoginView(APIView):
             key="refresh_token",
             value=refresh_token,
             httponly=True,                       # ensure HttpOnly
-            **_refresh_cookie_kwargs(max_age_seconds=864000)
+            **_refresh_cookie_kwargs(max_age_seconds=604800)
         )
 
         # Set readable user cookie (NOT HttpOnly)
         resp.set_cookie(
             key="user",
             value=_encode_user_cookie(_user_info(user)),
-            **_user_cookie_kwargs(max_age_seconds=864000)
+            **_user_cookie_kwargs(max_age_seconds=604800)
         )
 
         # Set access token cookie (HttpOnly)
@@ -262,27 +260,17 @@ class LoginView(APIView):
 class LogoutView(APIView):
     """
     Deletes refresh + access + user cookies.
-    Blacklists refresh token IF token_blacklist app is installed.
+    Previously blacklisted refresh token IF token_blacklist app was installed.
+    This version does NOT blacklist or rotate refresh tokens.
     """
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
 
         resp = Response({"message": "Logged out"}, status=status.HTTP_200_OK)
 
-        # Try blacklisting the refresh token
-        if refresh_token:
-            try:
-                token = RefreshToken(refresh_token)
-
-                # If blacklist app is installed
-                try:
-                    token.blacklist()
-                except Exception:
-                    # Silently ignore if blacklist is not enabled
-                    pass
-
-            except TokenError:
-                pass
+        # IMPORTANT: Do NOT blacklist or rotate the refresh token.
+        # We intentionally skip calling token.blacklist() or issuing a new refresh.
+        # This keeps refresh tokens reusable until expiry.
 
         # Delete all cookies
         resp.delete_cookie("refresh_token", path='/')

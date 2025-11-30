@@ -33,7 +33,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
-    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "account",
     "quiz",
@@ -80,7 +79,20 @@ ASGI_APPLICATION = "quiznet.asgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # 1. Try to read DATABASE_URL (Render / local override)
+# DATABASE_URL = "postgresql://quizdb_1juj_user:hmhKea8oXgTxIWzNSxjZqaZxYvYlXAPa@dpg-d4lkonogjchc73apnb40-a.oregon-postgres.render.com/quizdb_1juj"
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# if DATABASE_URL:
+#     # Use Render (or any external) Postgres when DATABASE_URL is set
+#     DATABASES = {
+#         "default": dj_database_url.parse(
+#             DATABASE_URL,
+#             conn_max_age=600,        # keep connections open
+#             ssl_require=True        # Render usually needs SSL; set False if local
+#         )
+#     }
+
+print("DATABASE_URL:", DATABASE_URL)
 
 if DATABASE_URL:
     # Use Render (or any external) Postgres when DATABASE_URL is set
@@ -88,9 +100,10 @@ if DATABASE_URL:
         "default": dj_database_url.parse(
             DATABASE_URL,
             conn_max_age=600,        # keep connections open
-            ssl_require=True        # Render usually needs SSL; set False if local
+            ssl_require=not DEBUG        # Render usually needs SSL; set False if local
         )
     }
+
 else:
     # 2. Fallback to your old local Postgres settings
     DATABASES = {
@@ -177,11 +190,15 @@ REST_FRAMEWORK = {
 }
 
 from datetime import timedelta
+from datetime import timedelta
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,    # <- must be False
+    "BLACKLIST_AFTER_ROTATION": False, # <- must be False
+    "ALGORITHM": "HS256",
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 CSRF_COOKIE_SECURE = True
@@ -225,5 +242,6 @@ CSRF_COOKIE_SAMESITE    = "None"
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY    = True
 
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY    = True 
+
+
+
