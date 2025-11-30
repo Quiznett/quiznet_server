@@ -1,6 +1,8 @@
 # views.py
+import os
 import json
 import urllib.parse
+
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -14,6 +16,76 @@ from rest_framework.permissions import AllowAny
 from account.serializers import RegisterSerializer, LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+# ------------------------------
+# OTP SYSTEM
+# ------------------------------
+
+from django.core.mail import send_mail
+import random
+from datetime import timedelta
+from django.utils import timezone
+from .models import EmailOTP
+
+class SendOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response({"error": "Email required"}, status=400)
+
+        # ❌ Check if email already exists
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {"error": "Email already registered. Please login instead."},
+                status=400
+            )
+
+        # generate OTP
+        otp = str(random.randint(100000, 999999))
+
+        # update/create OTP entry
+        EmailOTP.objects.update_or_create(email=email, defaults={"otp": otp})
+
+        # send mail
+        send_mail(
+            subject="Your OTP Code",
+            message=f"Your OTP is {otp}. It will expire in 5 minutes.",
+            from_email=os.environ.get("EMAIL_HOST_USER"),
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+        return Response({"message": "OTP sent successfully"})
+
+
+
+class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+
+        try:
+            otp_obj = EmailOTP.objects.get(email=email)
+        except EmailOTP.DoesNotExist:
+            return Response({"error": "OTP not found"}, status=400)
+
+        # Expired?
+        if otp_obj.is_expired():
+            otp_obj.delete()
+            return Response({"error": "OTP expired"}, status=400)
+
+        # Match?
+        if otp_obj.otp != otp:
+            return Response({"error": "Invalid OTP"}, status=400)
+
+        # Success → delete OTP
+        otp_obj.delete()
+        return Response({"message": "OTP verified"}, status=200)
+
+
 
 
 # ------------------------------
@@ -27,7 +99,8 @@ def _refresh_cookie_kwargs(max_age_seconds=864000):
     """
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None" if not settings.DEBUG else "Lax",
+        "samesite": "None" if not settings.DEBUG else "Lax",
+
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -40,8 +113,8 @@ def _user_cookie_kwargs(max_age_seconds=864000):
     """
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None",
-       "secure": True,
+"samesite": "None" if not settings.DEBUG else "Lax",
+
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -54,8 +127,8 @@ def _access_cookie_kwargs(max_age_seconds=300):
     """
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None" if not settings.DEBUG else "Lax",
-       "secure": True,
+        "samesite": "None" if not settings.DEBUG else "Lax",
+
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -140,9 +213,6 @@ class RegisterView(APIView):
         return resp
 
 
-# ------------------------------
-# LOGIN VIEW
-# ------------------------------
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -222,7 +292,7 @@ User = get_user_model()
 def _refresh_cookie_kwargs(max_age_seconds=864000):
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None" if not settings.DEBUG else "Lax",
+        "samesite": "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -231,7 +301,7 @@ def _refresh_cookie_kwargs(max_age_seconds=864000):
 def _access_cookie_kwargs(max_age_seconds=300):
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None" if not settings.DEBUG else "Lax",
+        "samesite": "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }

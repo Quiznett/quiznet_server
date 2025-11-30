@@ -1,4 +1,4 @@
-# account/middleware.py
+ # account/middleware.py
 from importlib.resources import path
 import traceback
 from django.utils.deprecation import MiddlewareMixin
@@ -13,8 +13,7 @@ User = get_user_model()
 def _refresh_cookie_kwargs(max_age_seconds=864000):
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None",
-       "secure": True,
+        "samesite": "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -23,8 +22,7 @@ def _refresh_cookie_kwargs(max_age_seconds=864000):
 def _access_cookie_kwargs(max_age_seconds=300):
     return {
         "secure": not settings.DEBUG,
-       "samesite": "None",
-       "secure": True,
+        "samesite": "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }

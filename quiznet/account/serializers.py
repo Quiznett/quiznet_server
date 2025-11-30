@@ -60,7 +60,7 @@ class LoginSerializer(serializers.Serializer):
 
 # NOTE: If you place the refresh token in an HttpOnly cookie (recommended),
 # the client will NOT send the refresh token in the request body. So a serializer
-# that expects `refresh` is misleading. Make logout endpoint read the cookie.
+# that expects refresh is misleading. Make logout endpoint read the cookie.
 # To reflect that, keep LogoutSerializer empty (no required fields).
 class LogoutSerializer(serializers.Serializer):
     # no fields required when refresh token is stored in HttpOnly cookie
