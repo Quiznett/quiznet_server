@@ -415,3 +415,35 @@ class AttemptedQuizzesView(APIView):
         # Serialize quiz objects only
         serializer = QuizListSerializer(quizzes, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class QuizInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, quiz_id):
+        try:
+            quiz = Quiz.objects.get(quiz_id=quiz_id)
+        except Quiz.DoesNotExist:
+            return Response({"detail": "Quiz not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        now = timezone.now()
+
+        started = now >= quiz.initiates_on
+        ended = now > quiz.ends_on
+
+        # Check if user already submitted (using your Attempt model)
+        attempt = Attempt.objects.filter(user=request.user, quiz=quiz).first()
+        already_submitted = attempt.is_submitted() if attempt else False
+
+        return Response({
+            "quiz_id": quiz.quiz_id,
+            "quiz_title": quiz.quiz_title,
+            "initiates_on": quiz.initiates_on,
+            "ends_on": quiz.ends_on,
+            "duration_minutes": quiz.time_limit_minutes,
+            "total_questions": quiz.questions.count(),
+            "started": started,
+            "ended": ended and not already_submitted, 
+            "already_submitted": already_submitted,
+        })

@@ -12,7 +12,8 @@ from .views import (
     AttemptStatusView,
     AttemptSubmitView,
     AttemptUserResponseView,
-    AttemptedQuizzesView
+    AttemptedQuizzesView,
+    QuizInfoView
     
 )
 
@@ -29,5 +30,6 @@ urlpatterns = [
     #Response-related urls
     path("quizzes/<uuid:quiz_id>/responses/", AttemptUserResponseView.as_view()),
     path("quizzes/<uuid:quiz_id>/responses/<uuid:user_id>/", AttemptUserResponseView.as_view()),
-     path('quizzes/attempted/', AttemptedQuizzesView.as_view(), name='quizzes-attempted'),
+    path('quizzes/attempted/', AttemptedQuizzesView.as_view(), name='quizzes-attempted'),
+    path('<uuid:quiz_id>/info/', QuizInfoView.as_view(), name='quiz-info'),
 ]

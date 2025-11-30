@@ -1,4 +1,6 @@
 # account/middleware.py
+from importlib.resources import path
+import traceback
 from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
@@ -34,7 +36,6 @@ class RefreshAccessMiddleware(MiddlewareMixin):
       - set access_token cookie on response (HttpOnly)
       - optionally rotate refresh token if SIMPLE_JWT.ROTATE_REFRESH_TOKENS=True
     """
-
     SKIP_PATHS = [
         "/api/v1/auth/login/",
         "/api/v1/auth/register/",
@@ -46,15 +47,16 @@ class RefreshAccessMiddleware(MiddlewareMixin):
     ]
 
     def _should_skip(self, path: str) -> bool:
-        for p in self.SKIP_PATHS:
-            if path.startswith(p):
-                return True
-        return False
-
+        
+        return path in self.SKIP_PATHS
+    
+    
+    
     def process_request(self, request):
         # Skip certain paths
-        if self._should_skip(request.path):
+        if request.path.startswith("/api/v1/auth/"):
             return None
+
 
         # If Authorization header already present, do nothing
         if request.META.get("HTTP_AUTHORIZATION"):
@@ -64,10 +66,12 @@ class RefreshAccessMiddleware(MiddlewareMixin):
         if not refresh_token:
             return None
 
-        try:
+        try:         
             refresh = RefreshToken(refresh_token)
             new_access = str(refresh.access_token)
         except TokenError:
+            print("ERROR OCCURRED:", TokenError)
+            traceback.print_exc()
             return None
 
         # Inject header for downstream authentication
@@ -132,5 +136,7 @@ class RefreshAccessMiddleware(MiddlewareMixin):
                     )
             except Exception:
                 response.delete_cookie("refresh_token", path="/")
+            
+            
 
         return response
