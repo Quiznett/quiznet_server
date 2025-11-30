@@ -1,6 +1,9 @@
 import os
 import dj_database_url
 
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 """
 Django settings for quiznet project.
 
@@ -12,14 +15,17 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-from dotenv import load_dotenv
-load_dotenv()
+# Load .env in development only if python-dotenv is available
+try:
+    from dotenv import load_dotenv  # type: ignore
+    dotenv_path = BASE_DIR / ".env"
+    if dotenv_path.exists():
+        load_dotenv(dotenv_path)
+except Exception:
+    # python-dotenv not available or .env missing — rely on os.environ (Render env vars)
+    pass
 
 
-from pathlib import Path
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -52,16 +58,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-     "corsheaders.middleware.CorsMiddleware",
-    "django.middleware.common.CommonMiddleware",
     "account.middleware.RefreshAccessMiddleware",
-#     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = "quiznet.urls"
@@ -153,10 +158,10 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-CORS_ALLOWED_ORIGINS =[
-    "http://localhost:5173",
-] 
-CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+# CORS (read from env in production)
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:5173").split(",")
+
 CORS_ALLOW_CREDENTIALS = True
 
 CHANNEL_LAYERS = {
@@ -191,9 +196,25 @@ REFRESH_TOKEN_LIFETIME_SECONDS = int(SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_
 
 # from pathlib import Path
 
-# STATIC_URL = '/static/'
-# STATIC_ROOT = BASE_DIR / 'staticfiles'   # or str(BASE_DIR / 'staticfiles')
-# STATICFILES_DIRS = [BASE_DIR / 'static'] # if you keep static in project 'static' folder
+from pathlib import Path
+import os
 
-# # WhiteNoise storage for compression & cache-busting
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+STATIC_URL = "/static/"
+
+# Directory where `collectstatic` will copy files to. Must be a filesystem path.
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# If you have a top-level 'static' directory for project-level assets, keep this.
+# If not, you can remove STATICFILES_DIRS or keep it empty.
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+# Use WhiteNoise's compressed manifest storage in production for caching & compression.
+# If collectstatic later raises ManifestMissingError, switch to CompressedStaticFilesStorage
+# temporarily until you fix missing references.
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
