@@ -27,7 +27,7 @@ def _refresh_cookie_kwargs(max_age_seconds=864000):
     """
     return {
         "secure": not settings.DEBUG,
-        "samesite": "Lax",
+       "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -40,7 +40,7 @@ def _user_cookie_kwargs(max_age_seconds=864000):
     """
     return {
         "secure": not settings.DEBUG,
-        "samesite": "Lax",
+       "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -53,7 +53,7 @@ def _access_cookie_kwargs(max_age_seconds=300):
     """
     return {
         "secure": not settings.DEBUG,
-        "samesite": "Lax",
+       "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -220,7 +220,7 @@ User = get_user_model()
 def _refresh_cookie_kwargs(max_age_seconds=864000):
     return {
         "secure": not settings.DEBUG,
-        "samesite": "Lax",
+       "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
@@ -229,7 +229,7 @@ def _refresh_cookie_kwargs(max_age_seconds=864000):
 def _access_cookie_kwargs(max_age_seconds=300):
     return {
         "secure": not settings.DEBUG,
-        "samesite": "Lax",
+       "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
