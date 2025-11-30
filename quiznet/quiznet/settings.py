@@ -124,6 +124,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+SESSION_COOKIE_SECURE = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ------------------------------------------------------------
@@ -186,6 +189,8 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
 }
+
+CSRF_COOKIE_SECURE = True
 
 # CSRF_COOKIE_HTTPONLY typically False (so frontend can read CSRF if you use double-submit)
 
