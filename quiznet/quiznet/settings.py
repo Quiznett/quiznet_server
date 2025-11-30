@@ -186,7 +186,9 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': False,
 }
 
-SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
 # CSRF_COOKIE_HTTPONLY typically False (so frontend can read CSRF if you use double-submit)
 
 # in settings.py
