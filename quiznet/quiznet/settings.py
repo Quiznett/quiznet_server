@@ -50,8 +50,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-     
-    "django.middleware.common.CommonMiddleware",
     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
@@ -140,16 +138,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ✅ ALLOWED ORIGINS updated to include 127.0.0.1 (important)
 # ------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",  # ← Added for Vite alternate origin
+    "https://quiznett.netlify.app"
 ]
 
 # ------------------------------------------------------------
 # ✅ CSRF TRUSTED ORIGINS updated similarly
 # ------------------------------------------------------------
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",  # ← Added
+    "https://quiznett.netlify.app"
 ]
 
 # ------------------------------------------------------------
