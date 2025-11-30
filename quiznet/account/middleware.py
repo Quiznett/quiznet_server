@@ -9,20 +9,18 @@ from django.utils.functional import SimpleLazyObject
 
 User = get_user_model()
 
-
 def _refresh_cookie_kwargs(max_age_seconds=864000):
     return {
-        "secure": not settings.DEBUG,
-        "samesite": "None",
+        "secure": False,
+        "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
 
-
 def _access_cookie_kwargs(max_age_seconds=300):
     return {
-        "secure": not settings.DEBUG,
-        "samesite": "None",
+        "secure": False,
+        "samesite": "None" if not settings.DEBUG else "Lax",
         "max_age": max_age_seconds,
         "path": "/",
     }
