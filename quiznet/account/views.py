@@ -34,7 +34,7 @@ class SendOTPView(APIView):
         if not email:
             return Response({"error": "Email required"}, status=400)
 
-        # ❌ Check if email already exists
+        # Check if email already exists
         if User.objects.filter(email=email).exists():
             return Response(
                 {"error": "Email already registered. Please login instead."},
