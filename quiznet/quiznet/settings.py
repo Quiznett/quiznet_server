@@ -1,3 +1,6 @@
+import os
+import dj_database_url
+
 """
 Django settings for quiznet project.
 
@@ -23,12 +26,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure--@wuc2(h=ug6*zt=zl&bkoprx#rmz(a-3jq@bl2vch&+lxe%lc"
+SECRET_KEY = os.environ.get('SECRET_KEY', 'unsafe-default-for-local')
+DEBUG = os.environ.get('DEBUG', '') == '1'
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -59,6 +61,7 @@ MIDDLEWARE = [
      "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "account.middleware.RefreshAccessMiddleware",
+#     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = "quiznet.urls"
@@ -83,8 +86,6 @@ ASGI_APPLICATION = "quiznet.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-import os
-import dj_database_url
 
 # 1. Try to read DATABASE_URL (Render / local override)
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -188,3 +189,11 @@ SESSION_COOKIE_HTTPONLY = True
 ACCESS_TOKEN_LIFETIME_SECONDS = int(SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
 REFRESH_TOKEN_LIFETIME_SECONDS = int(SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
 
+# from pathlib import Path
+
+# STATIC_URL = '/static/'
+# STATIC_ROOT = BASE_DIR / 'staticfiles'   # or str(BASE_DIR / 'staticfiles')
+# STATICFILES_DIRS = [BASE_DIR / 'static'] # if you keep static in project 'static' folder
+
+# # WhiteNoise storage for compression & cache-busting
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
