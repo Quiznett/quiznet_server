@@ -309,9 +309,9 @@ class AttemptUserResponseView(APIView):
 
     def get(self, request, quiz_id, user_id=None):
 
-        # ---------------------------------------------
+        #---------------------------------------------
         # 1) Validate quiz existence
-        # ---------------------------------------------
+        #---------------------------------------------
         try:
             quiz = Quiz.objects.get(quiz_id=quiz_id)
         except Quiz.DoesNotExist:

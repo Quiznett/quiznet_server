@@ -8,6 +8,9 @@ djangorestframework_simplejwt==5.5.1
 msgpack==1.1.1
 psycopg2==2.9.10
 PyJWT==2.10.1
-redis==6.4.0
 sqlparse==0.5.3
 tzdata==2025.2
+whitenoise==6.5.0
+gunicorn==23.0.0
+dj-database-url
+psycopg2-binary

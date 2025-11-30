@@ -9,6 +9,9 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 
 from pathlib import Path
 
@@ -55,6 +58,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
      "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "account.middleware.RefreshAccessMiddleware",
 ]
 
 ROOT_URLCONF = "quiznet.urls"
@@ -79,17 +83,33 @@ ASGI_APPLICATION = "quiznet.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+import os
+import dj_database_url
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "quizdb",
-        "USER": "quiz",
-        "PASSWORD": "root",
-        "HOST": "127.0.0.1",
-        "PORT": "5432",
+# 1. Try to read DATABASE_URL (Render / local override)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if DATABASE_URL:
+    # Use Render (or any external) Postgres when DATABASE_URL is set
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,        # keep connections open
+            ssl_require=True         # Render usually needs SSL; set False if local
+        )
     }
-}
+else:
+    # 2. Fallback to your old local Postgres settings
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "quizdb",
+            "USER": "quiz",
+            "PASSWORD": "root",
+            "HOST": "127.0.0.1",
+            "PORT": "5432",
+        }
+    }
 
 
 # Password validation
@@ -156,6 +176,15 @@ from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False, # set True if you implement rotation logic
+    'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+SESSION_COOKIE_HTTPONLY = True
+# CSRF_COOKIE_HTTPONLY typically False (so frontend can read CSRF if you use double-submit)
+
+# in settings.py
+# seconds for tokens; align with your SIMPLE_JWT lifetimes
+ACCESS_TOKEN_LIFETIME_SECONDS = int(SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
+REFRESH_TOKEN_LIFETIME_SECONDS = int(SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+
