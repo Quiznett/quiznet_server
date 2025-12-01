@@ -1,5 +1,7 @@
 # QuizNet — Backend Overview
 
+## Author - Ashvin Kausar, Kartikeya Singh Parihar
+
 ## Introduction
 
 This document provides a concise, repo-ready introduction to the **QuizNet** backend (Django + DRF). It explains the purpose, implemented features, high-level architecture, important views/endpoints, middleware, and suggestions for future improvements. Add this `README`-style Markdown file to the server repository as `backend_INTRO.md` or similar.
